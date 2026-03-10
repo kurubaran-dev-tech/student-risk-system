@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Performance Risk System</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1e429f;
+      --secondary: #7e3af2;
+      --success: #057a55;
+      --warning: #d97706;
+      --danger: #e02424;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --sidebar-w: 260px;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+    /* LOGIN PAGE */
+    .login-page { min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(135deg, #1a56db 0%, #7e3af2 100%); }
+    .login-card { background:#fff; border-radius:16px; padding:40px; width:100%; max-width:420px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .login-logo { text-align:center; margin-bottom:28px; }
+    .login-logo .icon { font-size:48px; }
+    .login-logo h1 { font-size:22px; font-weight:700; color:var(--primary); margin-top:8px; }
+    .login-logo p { color:var(--text-muted); font-size:13px; margin-top:4px; }
+    .form-group { margin-bottom:18px; }
+    .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text); margin-bottom:6px; }
+    .form-group input, .form-group select {
+      width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px;
+      font-size:14px; outline:none; transition:border-color .2s; background:#fff;
+    }
+    .form-group input:focus, .form-group select:focus { border-color:var(--primary); }
+    .form-group .hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border:none;
+      border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+    .btn-primary { background:var(--primary); color:#fff; }
+    .btn-primary:hover { background:var(--primary-dark); }
+    .btn-secondary { background:#f3f4f6; color:var(--text); border:1px solid var(--border); }
+    .btn-secondary:hover { background:#e5e7eb; }
+    .btn-danger { background:#fee2e2; color:var(--danger); }
+    .btn-danger:hover { background:#fecaca; }
+    .btn-success { background:#d1fae5; color:var(--success); }
+    .btn-success:hover { background:#a7f3d0; }
+    .btn-full { width:100%; justify-content:center; padding:12px; font-size:15px; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .error-msg { background:#fee2e2; color:var(--danger); padding:10px 14px; border-radius:8px;
+      font-size:13px; margin-bottom:14px; }
+
+    /* LAYOUT */
+    .app-layout { display:flex; min-height:100vh; }
+    .sidebar { width:var(--sidebar-w); background:linear-gradient(180deg,#1e3a8a,#1a56db);
+      color:#fff; display:flex; flex-direction:column; position:fixed; top:0; left:0; height:100vh;
+      z-index:100; transition:transform .3s; }
+    .sidebar-header { padding:24px 20px 16px; border-bottom:1px solid rgba(255,255,255,.15); }
+    .sidebar-header .app-name { font-size:14px; font-weight:700; letter-spacing:.5px; }
+    .sidebar-header .app-sub { font-size:11px; opacity:.7; margin-top:2px; }
+    .sidebar-user { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.1); }
+    .user-avatar { width:38px; height:38px; background:rgba(255,255,255,.2); border-radius:50%;
+      display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; }
+    .user-info { display:flex; align-items:center; gap:12px; }
+    .user-name { font-size:13px; font-weight:600; }
+    .user-role { font-size:11px; opacity:.7; background:rgba(255,255,255,.15); padding:2px 8px;
+      border-radius:20px; display:inline-block; margin-top:3px; }
+    .sidebar-nav { flex:1; padding:16px 12px; overflow-y:auto; }
+    .nav-section-title { font-size:10px; font-weight:700; letter-spacing:1.5px; opacity:.6;
+      padding:8px 8px 4px; text-transform:uppercase; }
+    .nav-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px;
+      font-size:14px; cursor:pointer; transition:background .2s; margin-bottom:2px; opacity:.85; }
+    .nav-item:hover { background:rgba(255,255,255,.12); opacity:1; }
+    .nav-item.active { background:rgba(255,255,255,.2); opacity:1; font-weight:600; }
+    .nav-item .icon { font-size:18px; width:22px; text-align:center; }
+    .sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,.1); }
+    .main-content { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; }
+    .topbar { background:#fff; border-bottom:1px solid var(--border); padding:14px 28px;
+      display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:50; }
+    .topbar-title { font-size:18px; font-weight:700; color:var(--text); }
+    .topbar-breadcrumb { font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .page-body { padding:28px; flex:1; }
+
+    /* CARDS */
+    .card { background:#fff; border-radius:12px; border:1px solid var(--border);
+      box-shadow:0 1px 4px rgba(0,0,0,.05); }
+    .card-header { padding:18px 20px 14px; border-bottom:1px solid var(--border); }
+    .card-title { font-size:16px; font-weight:700; }
+    .card-body { padding:20px; }
+
+    /* STAT CARDS */
+    .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+    .stat-card { background:#fff; border-radius:12px; border:1px solid var(--border); padding:20px;
+      display:flex; align-items:center; gap:16px; }
+    .stat-icon { width:48px; height:48px; border-radius:10px; display:flex; align-items:center;
+      justify-content:center; font-size:22px; }
+    .stat-value { font-size:26px; font-weight:800; }
+    .stat-label { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+    /* PREDICTION FORM */
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
+    .field-error { color:var(--danger); font-size:11px; margin-top:4px; }
+    input.invalid { border-color:var(--danger) !important; }
+    .range-hint { font-size:11px; color:var(--text-muted); margin-top:3px; }
+
+    /* PREDICTION RESULT */
+    .result-banner { border-radius:12px; padding:24px; margin-top:24px; display:flex;
+      align-items:center; gap:20px; }
+    .result-banner.green { background:linear-gradient(135deg,#d1fae5,#a7f3d0); border:1.5px solid #6ee7b7; }
+    .result-banner.orange { background:linear-gradient(135deg,#fef3c7,#fde68a); border:1.5px solid #fcd34d; }
+    .result-banner.red { background:linear-gradient(135deg,#fee2e2,#fecaca); border:1.5px solid #f87171; }
+    .result-icon { font-size:52px; }
+    .result-label { font-size:28px; font-weight:800; }
+    .result-confidence { font-size:14px; opacity:.75; margin-top:4px; }
+    .prob-bars { margin-top:18px; }
+    .prob-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .prob-name { width:110px; font-size:13px; font-weight:500; }
+    .prob-bar-bg { flex:1; background:#e5e7eb; border-radius:10px; height:10px; overflow:hidden; }
+    .prob-bar-fill { height:100%; border-radius:10px; transition:width .6s; }
+    .prob-val { width:50px; text-align:right; font-size:13px; font-weight:600; }
+    .advice-box { background:#f8faff; border:1px solid #c7d2fe; border-radius:10px; padding:14px 18px;
+      margin-top:16px; font-size:14px; color:#3730a3; }
+
+    /* TABLE */
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    th { background:#f9fafb; padding:11px 14px; text-align:left; font-weight:700; color:var(--text-muted);
+      border-bottom:2px solid var(--border); white-space:nowrap; }
+    td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tr:hover td { background:#f9fafb; }
+    .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px;
+      font-size:11px; font-weight:700; white-space:nowrap; }
+    .badge-green { background:#d1fae5; color:#065f46; }
+    .badge-orange { background:#fef3c7; color:#92400e; }
+    .badge-red { background:#fee2e2; color:#991b1b; }
+    .badge-blue { background:#dbeafe; color:#1e40af; }
+    .badge-gray { background:#f3f4f6; color:#374151; }
+    .badge-purple { background:#ede9fe; color:#5b21b6; }
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000;
+      display:flex; align-items:center; justify-content:center; }
+    .modal { background:#fff; border-radius:14px; width:90%; max-width:500px; max-height:90vh;
+      overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+    .modal-header { padding:20px 24px 14px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; }
+    .modal-title { font-size:17px; font-weight:700; }
+    .modal-body { padding:20px 24px; }
+    .modal-footer { padding:14px 24px 20px; border-top:1px solid var(--border);
+      display:flex; gap:10px; justify-content:flex-end; }
+    .close-btn { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); }
+
+    /* MISC */
+    .page-section { margin-bottom:24px; }
+    .section-title { font-size:16px; font-weight:700; margin-bottom:12px; }
+    .empty-state { text-align:center; padding:48px; color:var(--text-muted); }
+    .empty-state .big-icon { font-size:48px; margin-bottom:12px; }
+    .tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:20px; gap:4px; }
+    .tab { padding:10px 18px; border-radius:8px 8px 0 0; font-size:14px; font-weight:600;
+      cursor:pointer; color:var(--text-muted); transition:all .2s; border-bottom:2px solid transparent;
+      margin-bottom:-2px; }
+    .tab.active { color:var(--primary); border-bottom-color:var(--primary); background:#eff6ff; }
+    .tab:hover:not(.active) { background:#f9fafb; }
+    .loading { display:flex; align-items:center; justify-content:center; gap:10px; padding:40px;
+      color:var(--text-muted); }
+    .spinner { width:24px; height:24px; border:3px solid var(--border); border-top-color:var(--primary);
+      border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .alert { padding:12px 16px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+    .alert-success { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+    .alert-error { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+    .metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+    .metric-card { background:#f9fafb; border-radius:10px; padding:16px; text-align:center; border:1px solid var(--border); }
+    .metric-val { font-size:28px; font-weight:800; color:var(--primary); }
+    .metric-lbl { font-size:12px; color:var(--text-muted); margin-top:4px; }
+    .cm-table td, .cm-table th { width:90px; text-align:center; padding:12px; }
+    .cm-cell-high { background:#d1fae5; font-weight:700; color:#065f46; }
+    .cm-cell-low { background:#fee2e2; color:#991b1b; }
+    .toggle { position:relative; display:inline-block; width:44px; height:24px; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; cursor:pointer; inset:0; background:#ccc;
+      border-radius:24px; transition:.3s; }
+    .toggle-slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
+      background:#fff; border-radius:50%; transition:.3s; }
+    .toggle input:checked + .toggle-slider { background:var(--primary); }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(20px); }
+    canvas { max-width:100%; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:768px) { .sidebar { transform:translateX(-100%); } .main-content { margin-left:0; }
+      .two-col { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LOGIN PAGE -->
+  <div v-if="!authToken" class="login-page">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="icon">🎓</div>
+        <h1>Student Risk Predictor</h1>
+        <p>Academic Performance Risk Classification System</p>
+      </div>
+      <div v-if="loginError" class="error-msg">⚠️ {{ loginError }}</div>
+      <div class="form-group">
+        <label>Username</label>
+        <input v-model="loginForm.username" type="text" placeholder="Enter username"
+          @keyup.enter="doLogin" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input v-model="loginForm.password" type="password" placeholder="Enter password"
+          @keyup.enter="doLogin" />
+      </div>
+      <button class="btn btn-primary btn-full" @click="doLogin" :disabled="loginLoading">
+        <span v-if="loginLoading" class="spinner" style="width:16px;height:16px;border-width:2px"></span>
+        {{ loginLoading ? 'Signing in...' : '🔐 Sign In' }}
+      </button>
+      <div style="margin-top:20px;background:#f9fafb;border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted)">
+        <strong>Demo Credentials:</strong><br/>
+        👑 Admin: <code>admin</code> / <code>admin123</code><br/>
+        👤 Lecturer: <code>lecturer1</code> / <code>user123</code><br/>
+        👤 Advisor: <code>advisor1</code> / <code>user123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div v-else class="app-layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <div style="font-size:28px;text-align:center;margin-bottom:8px">🎓</div>
+        <div class="app-name" style="text-align:center">StudentRisk AI</div>
+        <div class="app-sub" style="text-align:center">v1.0 — {{ currentUser?.role === 'admin' ? 'Admin Portal' : 'User Portal' }}</div>
+      </div>
+      <div class="sidebar-user">
+        <div class="user-info">
+          <div class="user-avatar">{{ (currentUser?.full_name||'?')[0] }}</div>
+          <div>
+            <div class="user-name">{{ currentUser?.full_name }}</div>
+            <div class="user-role">{{ currentUser?.role === 'admin' ? '👑 Admin' : '👤 User' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <!-- USER NAV -->
+        <div class="nav-section-title">Main</div>
+        <div class="nav-item" :class="{active:page==='dashboard'}" @click="navigate('dashboard')">
+          <span class="icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" :class="{active:page==='predict'}" @click="navigate('predict')">
+          <span class="icon">🔮</span> New Prediction
+        </div>
+        <div class="nav-item" :class="{active:page==='history'}" @click="navigate('history')">
+          <span class="icon">📋</span> Prediction History
+        </div>
+
+        <!-- ADMIN ONLY -->
+        <template v-if="currentUser?.role === 'admin'">
+          <div class="nav-section-title" style="margin-top:12px">Administration</div>
+          <div class="nav-item" :class="{active:page==='admin-users'}" @click="navigate('admin-users')">
+            <span class="icon">👥</span> User Management
+          </div>
+          <div class="nav-item" :class="{active:page==='admin-dataset'}" @click="navigate('admin-dataset')">
+            <span class="icon">📁</span> Dataset Viewer
+          </div>
+          <div class="nav-item" :class="{active:page==='admin-model'}" @click="navigate('admin-model')">
+            <span class="icon">🤖</span> Model & Evaluation
+          </div>
+        </template>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-secondary btn-full" style="background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)"
+          @click="doLogout">🚪 Sign Out</button>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">{{ pageTitle }}</div>
+          <div class="topbar-breadcrumb">{{ pageBreadcrumb }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--text-muted)">{{ nowStr }}</span>
+        </div>
+      </div>
+
+      <div class="page-body">
+
+        <!-- ══════ DASHBOARD ══════ -->
+        <div v-if="page==='dashboard'">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#dbeafe">📊</div>
+              <div><div class="stat-value">{{ dashStats.total_predictions || 0 }}</div><div class="stat-label">Total Predictions</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#d1fae5">✅</div>
+              <div><div class="stat-value" style="color:var(--success)">{{ (dashStats.predictions_by_risk?.['Low Risk']) || 0 }}</div><div class="stat-label">Low Risk Students</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#fef3c7">⚠️</div>
+              <div><div class="stat-value" style="color:var(--warning)">{{ (dashStats.predictions_by_risk?.['Medium Risk']) || 0 }}</div><div class="stat-label">Medium Risk Students</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#fee2e2">🚨</div>
+              <div><div class="stat-value" style="color:var(--danger)">{{ (dashStats.predictions_by_risk?.['High Risk']) || 0 }}</div><div class="stat-label">High Risk Students</div></div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-header"><div class="card-title">📈 Risk Distribution</div></div>
+              <div class="card-body" style="height:260px;display:flex;align-items:center;justify-content:center">
+                <canvas id="dashChart" style="max-height:240px"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">🤖 Model Information</div></div>
+              <div class="card-body">
+                <table style="width:100%">
+                  <tr><td style="padding:8px 0;color:var(--text-muted);font-size:13px">Algorithm</td>
+                    <td style="font-weight:600;font-size:13px">{{ dashStats.model_name || '—' }}</td></tr>
+                  <tr><td style="padding:8px 0;color:var(--text-muted);font-size:13px">Accuracy</td>
+                    <td style="font-weight:700;color:var(--success);font-size:13px">{{ dashStats.model_accuracy ? (dashStats.model_accuracy*100).toFixed(2)+'%' : '—' }}</td></tr>
+                  <tr><td style="padding:8px 0;color:var(--text-muted);font-size:13px">F1-Score (Macro)</td>
+                    <td style="font-weight:700;color:var(--primary);font-size:13px">{{ dashStats.model_f1 ? (dashStats.model_f1*100).toFixed(2)+'%' : '—' }}</td></tr>
+                  <tr><td style="padding:8px 0;color:var(--text-muted);font-size:13px">Classes</td>
+                    <td style="font-size:13px"><span class="badge badge-green">Low</span> <span class="badge badge-orange">Medium</span> <span class="badge badge-red">High</span></td></tr>
+                </table>
+                <button class="btn btn-primary" style="margin-top:16px;width:100%" @click="navigate('predict')">
+                  🔮 Make a Prediction
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:20px">
+            <div class="card-header"><div class="card-title">🕐 Recent Predictions</div></div>
+            <div class="card-body">
+              <div v-if="recentPredictions.length === 0" class="empty-state">
+                <div class="big-icon">📭</div>
+                <div>No predictions yet. <span style="color:var(--primary);cursor:pointer" @click="navigate('predict')">Make one now!</span></div>
+              </div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead><tr><th>Student</th><th>Carry Marks</th><th>Assignment</th><th>Absences</th><th>Risk Level</th><th>Confidence</th></tr></thead>
+                  <tbody>
+                    <tr v-for="p in recentPredictions.slice(0,5)" :key="p.id">
+                      <td><strong>{{ p.student_name }}</strong><br/><span style="font-size:11px;color:var(--text-muted)">{{ p.student_id }}</span></td>
+                      <td>{{ p.inputs.carry_marks }}</td>
+                      <td>{{ p.inputs.assignment_score }}</td>
+                      <td>{{ p.inputs.absences }}</td>
+                      <td><span :class="riskBadge(p.prediction)" class="badge">{{ p.prediction_label }}</span></td>
+                      <td>{{ p.confidence }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ PREDICT ══════ -->
+        <div v-if="page==='predict'">
+          <div v-if="predAlert" :class="['alert', predAlert.type==='success'?'alert-success':'alert-error']">
+            {{ predAlert.msg }}
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🎓 Student Information</div>
+            </div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Student Name</label>
+                  <input v-model="predForm.student_name" type="text" placeholder="e.g. Ahmad bin Ali" />
+                </div>
+                <div class="form-group">
+                  <label>Student ID</label>
+                  <input v-model="predForm.student_id" type="text" placeholder="e.g. B25030045" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-header">
+              <div class="card-title">📊 Academic Attributes</div>
+            </div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Carry Marks (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.carry_marks" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.carry_marks}" placeholder="e.g. 65.5" />
+                  <div class="range-hint">Total marks from quizzes, assignments, mid-term (out of 100)</div>
+                  <div v-if="predErrors.carry_marks" class="field-error">{{ predErrors.carry_marks }}</div>
+                </div>
+                <div class="form-group">
+                  <label>Assignment Score (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.assignment_score" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.assignment_score}" placeholder="e.g. 72.0" />
+                  <div class="range-hint">Average score on individual assignment tasks</div>
+                  <div v-if="predErrors.assignment_score" class="field-error">{{ predErrors.assignment_score }}</div>
+                </div>
+                <div class="form-group">
+                  <label>Number of Absences (0–20) <span style="color:red">*</span></label>
+                  <input v-model="predForm.absences" type="number" min="0" max="20"
+                    :class="{invalid: predErrors.absences}" placeholder="e.g. 3" />
+                  <div class="range-hint">Total class absences during the semester</div>
+                  <div v-if="predErrors.absences" class="field-error">{{ predErrors.absences }}</div>
+                </div>
+                <div class="form-group">
+                  <label>Study Time per Week (1–10 hrs) <span style="color:red">*</span></label>
+                  <input v-model="predForm.study_time" type="number" min="1" max="10"
+                    :class="{invalid: predErrors.study_time}" placeholder="e.g. 5" />
+                  <div class="range-hint">Average hours per week dedicated to study</div>
+                  <div v-if="predErrors.study_time" class="field-error">{{ predErrors.study_time }}</div>
+                </div>
+                <div class="form-group">
+                  <label>Health Index (1–5) <span style="color:red">*</span></label>
+                  <select v-model="predForm.health_index" :class="{invalid: predErrors.health_index}">
+                    <option value="">-- Select Health Status --</option>
+                    <option value="1">1 – Very Poor</option>
+                    <option value="2">2 – Poor</option>
+                    <option value="3">3 – Average</option>
+                    <option value="4">4 – Good</option>
+                    <option value="5">5 – Excellent</option>
+                  </select>
+                  <div class="range-hint">Self-reported general health status</div>
+                  <div v-if="predErrors.health_index" class="field-error">{{ predErrors.health_index }}</div>
+                </div>
+                <div class="form-group">
+                  <label>Cumulative Failures (0–3) <span style="color:red">*</span></label>
+                  <select v-model="predForm.cumulative_failures" :class="{invalid: predErrors.cumulative_failures}">
+                    <option value="">-- Select --</option>
+                    <option value="0">0 – No prior failures</option>
+                    <option value="1">1 – One prior failure</option>
+                    <option value="2">2 – Two prior failures</option>
+                    <option value="3">3 – Three or more failures</option>
+                  </select>
+                  <div class="range-hint">Number of courses previously failed</div>
+                  <div v-if="predErrors.cumulative_failures" class="field-error">{{ predErrors.cumulative_failures }}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:20px">
+                <button class="btn btn-primary" @click="submitPrediction" :disabled="predLoading" style="min-width:160px">
+                  <span v-if="predLoading" class="spinner" style="width:16px;height:16px;border-width:2px"></span>
+                  {{ predLoading ? 'Predicting...' : '🔮 Predict Risk Level' }}
+                </button>
+                <button class="btn btn-secondary" @click="clearPredForm">🔄 Clear Form</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESULT -->
+          <div v-if="predResult" style="margin-top:16px">
+            <div :class="['result-banner', predResult.color]">
+              <div class="result-icon">{{ predResult.color==='green'?'✅':predResult.color==='orange'?'⚠️':'🚨' }}</div>
+              <div>
+                <div class="result-label">{{ predResult.prediction_label }}</div>
+                <div class="result-confidence">Confidence: <strong>{{ predResult.confidence }}%</strong></div>
+                <div style="font-size:13px;margin-top:4px;opacity:.8">Student: {{ predResult.student_name }} ({{ predResult.student_id }})</div>
+              </div>
+            </div>
+            <div class="card" style="margin-top:14px">
+              <div class="card-header"><div class="card-title">📊 Class Probability Breakdown</div></div>
+              <div class="card-body">
+                <div class="prob-bars">
+                  <div v-for="(val, label) in predResult.probabilities" :key="label" class="prob-row">
+                    <div class="prob-name">{{ label }}</div>
+                    <div class="prob-bar-bg">
+                      <div class="prob-bar-fill"
+                        :style="{width: val+'%', background: label==='Low Risk'?'#10b981':label==='Medium Risk'?'#f59e0b':'#ef4444'}"></div>
+                    </div>
+                    <div class="prob-val">{{ val }}%</div>
+                  </div>
+                </div>
+                <div class="advice-box">
+                  💡 <strong>Recommendation:</strong> {{ predResult.advice }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ HISTORY ══════ -->
+        <div v-if="page==='history'">
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="card-title">📋 Prediction History</div>
+              <button class="btn btn-secondary" @click="loadHistory">🔄 Refresh</button>
+            </div>
+            <div class="card-body">
+              <div v-if="historyLoading" class="loading"><div class="spinner"></div> Loading...</div>
+              <div v-else-if="historyList.length === 0" class="empty-state">
+                <div class="big-icon">📭</div>
+                <div>No prediction history found.</div>
+              </div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Date/Time</th><th>Student</th><th>Carry</th><th>Assignment</th>
+                      <th>Absences</th><th>Study</th><th>Health</th><th>Failures</th>
+                      <th>Risk Level</th><th>Confidence</th><th v-if="currentUser.role==='admin'">Submitted By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(p, i) in historyList" :key="p.id">
+                      <td style="color:var(--text-muted)">{{ i+1 }}</td>
+                      <td style="font-size:12px">{{ fmtDate(p.timestamp) }}</td>
+                      <td><strong>{{ p.student_name }}</strong><br/><span style="font-size:11px;color:var(--text-muted)">{{ p.student_id }}</span></td>
+                      <td>{{ p.inputs.carry_marks }}</td>
+                      <td>{{ p.inputs.assignment_score }}</td>
+                      <td>{{ p.inputs.absences }}</td>
+                      <td>{{ p.inputs.study_time }}</td>
+                      <td>{{ p.inputs.health_index }}</td>
+                      <td>{{ p.inputs.cumulative_failures }}</td>
+                      <td><span :class="riskBadge(p.prediction)" class="badge">{{ p.prediction_label }}</span></td>
+                      <td>{{ p.confidence }}%</td>
+                      <td v-if="currentUser.role==='admin'" style="font-size:12px">{{ p.submitted_by }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ ADMIN: USER MANAGEMENT ══════ -->
+        <div v-if="page==='admin-users'">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+            <button class="btn btn-primary" @click="openCreateUser">➕ Add New User</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">👥 System Users</div></div>
+            <div class="card-body">
+              <div v-if="usersLoading" class="loading"><div class="spinner"></div> Loading...</div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead><tr><th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    <tr v-for="u in userList" :key="u.id">
+                      <td><strong>{{ u.full_name }}</strong></td>
+                      <td><code>{{ u.username }}</code></td>
+                      <td>{{ u.email }}</td>
+                      <td><span :class="u.role==='admin'?'badge badge-purple':'badge badge-blue'">{{ u.role }}</span></td>
+                      <td><span :class="u.active?'badge badge-green':'badge badge-gray'">{{ u.active?'Active':'Inactive' }}</span></td>
+                      <td>
+                        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;margin-right:6px"
+                          @click="openEditUser(u)">✏️ Edit</button>
+                        <button v-if="u.active && u.username!=='admin'" class="btn btn-danger"
+                          style="padding:5px 10px;font-size:12px"
+                          @click="deactivateUser(u)">🚫 Deactivate</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ ADMIN: DATASET ══════ -->
+        <div v-if="page==='admin-dataset'">
+          <div v-if="datasetInfo" >
+            <div class="stat-grid" style="margin-bottom:20px">
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#dbeafe">📁</div>
+                <div><div class="stat-value">{{ datasetInfo.total_records }}</div><div class="stat-label">Total Records</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#d1fae5">✅</div>
+                <div><div class="stat-value">{{ datasetInfo.class_distribution?.[0] || 0 }}</div><div class="stat-label">Low Risk (Class 0)</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#fef3c7">⚠️</div>
+                <div><div class="stat-value">{{ datasetInfo.class_distribution?.[1] || 0 }}</div><div class="stat-label">Medium Risk (Class 1)</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#fee2e2">🚨</div>
+                <div><div class="stat-value">{{ datasetInfo.class_distribution?.[2] || 0 }}</div><div class="stat-label">High Risk (Class 2)</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">🔍 Sample Dataset Records (First 20)</div></div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr>
+                      <th>Carry Marks</th><th>Assignment</th><th>Absences</th>
+                      <th>Study Time</th><th>Health Index</th><th>Failures</th><th>Risk Level</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr v-for="(r,i) in (datasetInfo.sample_records||[])" :key="i">
+                        <td>{{ r.carry_marks }}</td><td>{{ r.assignment_score }}</td>
+                        <td>{{ r.absences }}</td><td>{{ r.study_time }}</td>
+                        <td>{{ r.health_index }}</td><td>{{ r.cumulative_failures }}</td>
+                        <td><span :class="riskBadge(r.risk_level)" class="badge">{{ ['Low Risk','Medium Risk','High Risk'][r.risk_level] }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="loading"><div class="spinner"></div> Loading dataset...</div>
+        </div>
+
+        <!-- ══════ ADMIN: MODEL EVALUATION ══════ -->
+        <div v-if="page==='admin-model'">
+          <div v-if="evalData">
+            <div class="tabs">
+              <div class="tab" :class="{active:evalTab==='summary'}" @click="evalTab='summary'">📈 Summary</div>
+              <div class="tab" :class="{active:evalTab==='confusion'}" @click="evalTab='confusion'">🔲 Confusion Matrix</div>
+              <div class="tab" :class="{active:evalTab==='all'}" @click="evalTab='all'">📊 All Models</div>
+            </div>
+
+            <!-- SUMMARY TAB -->
+            <div v-if="evalTab==='summary'">
+              <div class="card">
+                <div class="card-header"><div class="card-title">🏆 Best Model: {{ modelMeta?.best_model_name }}</div></div>
+                <div class="card-body">
+                  <div class="metric-grid">
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.accuracy) }}</div><div class="metric-lbl">Accuracy</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.f1_macro) }}</div><div class="metric-lbl">F1 (Macro)</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.f1_micro) }}</div><div class="metric-lbl">F1 (Micro)</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.precision_macro) }}</div><div class="metric-lbl">Precision</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.recall_macro) }}</div><div class="metric-lbl">Recall</div></div>
+                  </div>
+                  <div style="margin-top:24px">
+                    <div class="card-title" style="margin-bottom:14px;font-size:15px">Per-Class Metrics</div>
+                    <div class="table-wrap">
+                      <table>
+                        <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th></tr></thead>
+                        <tbody>
+                          <tr v-for="(cls,name) in perClassMetrics" :key="name">
+                            <td><span :class="riskBadgeStr(name)" class="badge">{{ name }}</span></td>
+                            <td>{{ pct(cls.precision) }}</td>
+                            <td>{{ pct(cls.recall) }}</td>
+                            <td><strong>{{ pct(cls['f1-score']) }}</strong></td>
+                            <td>{{ cls.support }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONFUSION MATRIX -->
+            <div v-if="evalTab==='confusion'">
+              <div class="card">
+                <div class="card-header"><div class="card-title">🔲 Confusion Matrix — {{ modelMeta?.best_model_name }}</div></div>
+                <div class="card-body">
+                  <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+                    Rows = Actual Labels · Columns = Predicted Labels · Diagonal = Correct Predictions
+                  </p>
+                  <table class="cm-table" style="border-collapse:collapse;text-align:center">
+                    <thead>
+                      <tr>
+                        <th style="background:#f9fafb;padding:12px">Actual \ Pred</th>
+                        <th style="padding:12px;background:#d1fae5">Low Risk</th>
+                        <th style="padding:12px;background:#fef3c7">Med Risk</th>
+                        <th style="padding:12px;background:#fee2e2">High Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, ri) in (bestEval?.confusion_matrix||[])" :key="ri">
+                        <td style="font-weight:700;background:#f9fafb;padding:12px">{{ ['Low Risk','Medium Risk','High Risk'][ri] }}</td>
+                        <td v-for="(val,ci) in row" :key="ci"
+                          :style="{background: ri===ci?'#d1fae5':'#fee2e2', fontWeight: ri===ci?'800':'400', padding:'14px', fontSize:'18px'}">
+                          {{ val }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="advice-box" style="margin-top:16px">
+                    💡 <strong>Interpretation:</strong> Diagonal values represent correctly classified students. Off-diagonal cells show misclassification—a student predicted as Low Risk but actually High Risk is the most critical error type.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ALL MODELS -->
+            <div v-if="evalTab==='all'">
+              <div class="card">
+                <div class="card-header"><div class="card-title">📊 Model Comparison</div></div>
+                <div class="card-body">
+                  <div class="table-wrap">
+                    <table>
+                      <thead><tr><th>Model</th><th>Accuracy</th><th>F1 Macro</th><th>F1 Micro</th><th>Precision</th><th>Recall</th><th>Winner?</th></tr></thead>
+                      <tbody>
+                        <tr v-for="(data, name) in evalData" :key="name">
+                          <td><strong>{{ name }}</strong></td>
+                          <td>{{ pct(data.accuracy) }}</td>
+                          <td>{{ pct(data.f1_macro) }}</td>
+                          <td>{{ pct(data.f1_micro) }}</td>
+                          <td>{{ pct(data.precision_macro) }}</td>
+                          <td>{{ pct(data.recall_macro) }}</td>
+                          <td>{{ name === modelMeta?.best_model_name ? '🏆 Best' : '' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style="margin-top:24px;height:300px">
+                    <canvas id="modelCompChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="loading"><div class="spinner"></div> Loading evaluation data...</div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- USER MODAL -->
+  <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal=false">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">{{ editingUser ? '✏️ Edit User' : '➕ Create New User' }}</div>
+        <button class="close-btn" @click="showUserModal=false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="userModalAlert" :class="['alert', userModalAlert.type==='success'?'alert-success':'alert-error']">{{ userModalAlert.msg }}</div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input v-model="userForm.full_name" type="text" placeholder="Dr. Ahmad bin Ali" />
+        </div>
+        <div v-if="!editingUser" class="form-group">
+          <label>Username</label>
+          <input v-model="userForm.username" type="text" placeholder="lecturer2" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input v-model="userForm.email" type="email" placeholder="user@edu.my" />
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select v-model="userForm.role">
+            <option value="user">User (Lecturer / Advisor)</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Password {{ editingUser ? '(leave blank to keep current)' : '' }}</label>
+          <input v-model="userForm.password" type="password" placeholder="••••••••" />
+        </div>
+        <div v-if="editingUser" class="form-group" style="display:flex;align-items:center;gap:12px">
+          <label style="margin:0">Active</label>
+          <label class="toggle">
+            <input type="checkbox" v-model="userForm.active" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:13px;color:var(--text-muted)">{{ userForm.active ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="showUserModal=false">Cancel</button>
+        <button class="btn btn-primary" @click="saveUser" :disabled="userSaving">
+          {{ userSaving ? 'Saving...' : (editingUser ? '💾 Save Changes' : '➕ Create User') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
+
+const API = 'http://localhost:5000/api';
+
+async function api(path, opts = {}) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json', ...(token ? {'Authorization':'Bearer '+token} : {}) },
+    ...opts
+  });
+  const data = await res.json();
+  if (!res.ok) throw data;
+  return data;
+}
+
+createApp({
+  setup() {
+    const authToken = ref(localStorage.getItem('token'));
+    const currentUser = ref(null);
+    const page = ref('dashboard');
+
+    // Login
+    const loginForm = ref({ username: '', password: '' });
+    const loginError = ref('');
+    const loginLoading = ref(false);
+
+    // Dashboard
+    const dashStats = ref({});
+    const recentPredictions = ref([]);
+    let dashChart = null;
+
+    // Predict
+    const predForm = ref({ student_name:'', student_id:'', carry_marks:'', assignment_score:'',
+      absences:'', study_time:'', health_index:'', cumulative_failures:'' });
+    const predErrors = ref({});
+    const predLoading = ref(false);
+    const predResult = ref(null);
+    const predAlert = ref(null);
+
+    // History
+    const historyList = ref([]);
+    const historyLoading = ref(false);
+
+    // Users
+    const userList = ref([]);
+    const usersLoading = ref(false);
+    const showUserModal = ref(false);
+    const editingUser = ref(null);
+    const userForm = ref({});
+    const userSaving = ref(false);
+    const userModalAlert = ref(null);
+
+    // Dataset / Model
+    const datasetInfo = ref(null);
+    const evalData = ref(null);
+    const modelMeta = ref(null);
+    const evalTab = ref('summary');
+    let modelChart = null;
+
+    const nowStr = computed(() => new Date().toLocaleString('en-MY'));
+
+    const pageTitle = computed(() => ({
+      dashboard: '📊 Dashboard', predict: '🔮 New Prediction', history: '📋 Prediction History',
+      'admin-users': '👥 User Management', 'admin-dataset': '📁 Dataset Viewer', 'admin-model': '🤖 Model & Evaluation'
+    })[page.value] || 'Dashboard');
+
+    const pageBreadcrumb = computed(() => ({
+      dashboard: 'Overview of system activity and statistics',
+      predict: 'Enter student attributes to get a risk classification',
+      history: 'View past prediction records',
+      'admin-users': 'Create, edit, and manage system users',
+      'admin-dataset': 'View training dataset records and statistics',
+      'admin-model': 'Evaluate model performance and metrics'
+    })[page.value] || '');
+
+    const bestEval = computed(() => {
+      if (!evalData.value || !modelMeta.value) return null;
+      return evalData.value[modelMeta.value.best_model_name];
+    });
+
+    const perClassMetrics = computed(() => {
+      if (!bestEval.value) return {};
+      const r = bestEval.value.classification_report;
+      return { 'Low Risk': r['Low Risk'], 'Medium Risk': r['Medium Risk'], 'High Risk': r['High Risk'] };
+    });
+
+    function riskBadge(pred) {
+      return pred === 0 ? 'badge-green' : pred === 1 ? 'badge-orange' : 'badge-red';
+    }
+    function riskBadgeStr(label) {
+      return label === 'Low Risk' ? 'badge-green' : label === 'Medium Risk' ? 'badge-orange' : 'badge-red';
+    }
+    function pct(v) { return v != null ? (v*100).toFixed(2)+'%' : '—'; }
+    function fmtDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-MY') + ' ' + d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    }
+
+    async function doLogin() {
+      loginError.value = '';
+      loginLoading.value = true;
+      try {
+        const data = await api('/login', { method:'POST', body: JSON.stringify(loginForm.value) });
+        localStorage.setItem('token', data.token);
+        authToken.value = data.token;
+        await loadCurrentUser();
+        navigate('dashboard');
+      } catch(e) {
+        loginError.value = e.error || 'Login failed.';
+      } finally { loginLoading.value = false; }
+    }
+
+    async function doLogout() {
+      try { await api('/logout', { method:'POST' }); } catch(e) {}
+      localStorage.removeItem('token');
+      authToken.value = null;
+      currentUser.value = null;
+    }
+
+    async function loadCurrentUser() {
+      currentUser.value = await api('/me');
+    }
+
+    async function navigate(p) {
+      page.value = p;
+      predResult.value = null;
+      predAlert.value = null;
+      if (p === 'dashboard') await loadDashboard();
+      if (p === 'history') await loadHistory();
+      if (p === 'admin-users') await loadUsers();
+      if (p === 'admin-dataset') await loadDataset();
+      if (p === 'admin-model') await loadModel();
+    }
+
+    async function loadDashboard() {
+      try {
+        if (currentUser.value?.role === 'admin') {
+          dashStats.value = await api('/admin/stats');
+        }
+        const h = await api('/predictions/history');
+        recentPredictions.value = h.predictions;
+        await nextTick();
+        renderDashChart();
+      } catch(e) {}
+    }
+
+    function renderDashChart() {
+      const ctx = document.getElementById('dashChart');
+      if (!ctx) return;
+      if (dashChart) dashChart.destroy();
+      const s = dashStats.value?.predictions_by_risk || {};
+      dashChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Low Risk','Medium Risk','High Risk'],
+          datasets: [{ data: [s['Low Risk']||0, s['Medium Risk']||0, s['High Risk']||0],
+            backgroundColor: ['#10b981','#f59e0b','#ef4444'], borderWidth:2 }]
+        },
+        options: { plugins:{ legend:{ position:'bottom' } }, cutout:'65%' }
+      });
+    }
+
+    async function submitPrediction() {
+      predErrors.value = {};
+      predAlert.value = null;
+      predLoading.value = true;
+      try {
+        const result = await api('/predict', { method:'POST', body: JSON.stringify(predForm.value) });
+        predResult.value = result;
+        predAlert.value = { type:'success', msg:'✅ Prediction submitted successfully!' };
+      } catch(e) {
+        if (e.errors) predErrors.value = e.errors;
+        else predAlert.value = { type:'error', msg: e.error || 'Prediction failed.' };
+      } finally { predLoading.value = false; }
+    }
+
+    function clearPredForm() {
+      predForm.value = { student_name:'', student_id:'', carry_marks:'', assignment_score:'',
+        absences:'', study_time:'', health_index:'', cumulative_failures:'' };
+      predErrors.value = {};
+      predResult.value = null;
+      predAlert.value = null;
+    }
+
+    async function loadHistory() {
+      historyLoading.value = true;
+      try {
+        const h = await api('/predictions/history');
+        historyList.value = h.predictions;
+      } catch(e) {} finally { historyLoading.value = false; }
+    }
+
+    async function loadUsers() {
+      usersLoading.value = true;
+      try { userList.value = (await api('/admin/users')).users; }
+      catch(e) {} finally { usersLoading.value = false; }
+    }
+
+    function openCreateUser() {
+      editingUser.value = null;
+      userForm.value = { username:'', full_name:'', email:'', role:'user', password:'', active:true };
+      userModalAlert.value = null;
+      showUserModal.value = true;
+    }
+
+    function openEditUser(u) {
+      editingUser.value = u;
+      userForm.value = { ...u, password: '' };
+      userModalAlert.value = null;
+      showUserModal.value = true;
+    }
+
+    async function saveUser() {
+      userSaving.value = true;
+      userModalAlert.value = null;
+      try {
+        if (editingUser.value) {
+          await api('/admin/users/' + editingUser.value.id, { method:'PUT', body: JSON.stringify(userForm.value) });
+          userModalAlert.value = { type:'success', msg:'User updated successfully!' };
+        } else {
+          await api('/admin/users', { method:'POST', body: JSON.stringify(userForm.value) });
+          userModalAlert.value = { type:'success', msg:'User created successfully!' };
+        }
+        await loadUsers();
+        setTimeout(() => { showUserModal.value = false; }, 1200);
+      } catch(e) {
+        userModalAlert.value = { type:'error', msg: e.error || 'Failed to save user.' };
+      } finally { userSaving.value = false; }
+    }
+
+    async function deactivateUser(u) {
+      if (!confirm(`Deactivate user "${u.username}"?`)) return;
+      await api('/admin/users/'+u.id, { method:'DELETE' });
+      await loadUsers();
+    }
+
+    async function loadDataset() {
+      try { datasetInfo.value = await api('/admin/dataset'); } catch(e) {}
+    }
+
+    async function loadModel() {
+      try {
+        const e = await api('/admin/evaluation');
+        evalData.value = e;
+        const m = await api('/admin/model');
+        modelMeta.value = m;
+        await nextTick();
+        renderModelChart();
+      } catch(e) {}
+    }
+
+    watch(evalTab, async (t) => {
+      if (t === 'all') { await nextTick(); renderModelChart(); }
+    });
+
+    function renderModelChart() {
+      const ctx = document.getElementById('modelCompChart');
+      if (!ctx || !evalData.value) return;
+      if (modelChart) modelChart.destroy();
+      const names = Object.keys(evalData.value);
+      modelChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: names,
+          datasets: [
+            { label:'Accuracy', data: names.map(n => evalData.value[n].accuracy*100), backgroundColor:'#3b82f6' },
+            { label:'F1 Macro', data: names.map(n => evalData.value[n].f1_macro*100), backgroundColor:'#10b981' },
+            { label:'Precision', data: names.map(n => evalData.value[n].precision_macro*100), backgroundColor:'#f59e0b' },
+            { label:'Recall', data: names.map(n => evalData.value[n].recall_macro*100), backgroundColor:'#8b5cf6' },
+          ]
+        },
+        options: { scales: { y: { min:0, max:105, ticks: { callback: v => v+'%' } } },
+          plugins: { legend: { position:'bottom' } }, responsive:true, maintainAspectRatio:true }
+      });
+    }
+
+    // Init
+    if (authToken.value) {
+      loadCurrentUser().then(() => navigate('dashboard'));
+    }
+
+    return {
+      authToken, currentUser, page, loginForm, loginError, loginLoading,
+      dashStats, recentPredictions, predForm, predErrors, predLoading, predResult, predAlert,
+      historyList, historyLoading, userList, usersLoading, showUserModal, editingUser,
+      userForm, userSaving, userModalAlert, datasetInfo, evalData, modelMeta, evalTab,
+      pageTitle, pageBreadcrumb, nowStr, bestEval, perClassMetrics,
+      doLogin, doLogout, navigate, submitPrediction, clearPredForm,
+      loadHistory, openCreateUser, openEditUser, saveUser, deactivateUser,
+      riskBadge, riskBadgeStr, pct, fmtDate
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
