@@ -1,0 +1,10 @@
+{
+  "_note": "This file will be regenerated when you run: cd ml_model && python train_model.py",
+  "best_model_name": "Run train_model.py to generate",
+  "features": ["attendance_rate","midterm_score","assignment_avg","quiz_avg","lab_score","participation_score","late_submissions","previous_cgpa"],
+  "class_labels": {"0": "Low Risk", "1": "Medium Risk", "2": "High Risk"},
+  "scaled": true,
+  "best_accuracy": 0,
+  "best_f1_macro": 0,
+  "evaluation": {}
+}

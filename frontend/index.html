@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Performance Risk System</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════════════
+       LOGIN PAGE
+  ══════════════════════════════════════════ -->
+  <div v-if="!authToken" class="login-page">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="icon">🎓</div>
+        <h1>Student Risk Predictor</h1>
+        <p>Academic Performance Risk Classification System</p>
+      </div>
+      <div v-if="loginError" class="error-msg">⚠️ {{ loginError }}</div>
+      <div class="form-group">
+        <label>Username</label>
+        <input v-model="loginForm.username" type="text" placeholder="Enter username"
+          @keyup.enter="doLogin" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input v-model="loginForm.password" type="password" placeholder="Enter password"
+          @keyup.enter="doLogin" />
+      </div>
+      <button class="btn btn-primary btn-full" @click="doLogin" :disabled="loginLoading">
+        <span v-if="loginLoading" class="spinner" style="width:16px;height:16px;border-width:2px"></span>
+        {{ loginLoading ? 'Signing in...' : '🔐 Sign In' }}
+      </button>
+      <div style="margin-top:20px;background:#f9fafb;border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted)">
+        <strong>Demo Credentials:</strong><br/>
+        👑 Admin: <code>admin</code> / <code>admin123</code><br/>
+        👤 Lecturer: <code>lecturer1</code> / <code>user123</code><br/>
+        👤 Advisor: <code>advisor1</code> / <code>user123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       MAIN APP
+  ══════════════════════════════════════════ -->
+  <div v-else class="app-layout">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <div style="font-size:28px;text-align:center;margin-bottom:8px">🎓</div>
+        <div class="app-name">StudentRisk AI</div>
+        <div class="app-sub">v2.0 — {{ currentUser?.role === 'admin' ? 'Admin Portal' : 'User Portal' }}</div>
+      </div>
+      <div class="sidebar-user">
+        <div class="user-info">
+          <div class="user-avatar">{{ (currentUser?.full_name || '?')[0] }}</div>
+          <div>
+            <div class="user-name">{{ currentUser?.full_name }}</div>
+            <div class="user-role">{{ currentUser?.role === 'admin' ? '👑 Admin' : '👤 User' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-section-title">Main</div>
+        <div class="nav-item" :class="{active: page==='dashboard'}" @click="navigate('dashboard')">
+          <span class="icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" :class="{active: page==='predict'}" @click="navigate('predict')">
+          <span class="icon">🔮</span> New Prediction
+        </div>
+        <div class="nav-item" :class="{active: page==='history'}" @click="navigate('history')">
+          <span class="icon">📋</span> Prediction History
+        </div>
+        <template v-if="currentUser?.role === 'admin'">
+          <div class="nav-section-title" style="margin-top:12px">Administration</div>
+          <div class="nav-item" :class="{active: page==='admin-users'}" @click="navigate('admin-users')">
+            <span class="icon">👥</span> User Management
+          </div>
+          <div class="nav-item" :class="{active: page==='admin-dataset'}" @click="navigate('admin-dataset')">
+            <span class="icon">📁</span> Dataset Viewer
+          </div>
+          <div class="nav-item" :class="{active: page==='admin-model'}" @click="navigate('admin-model')">
+            <span class="icon">🤖</span> Model & Evaluation
+          </div>
+        </template>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-secondary btn-full"
+          style="background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)"
+          @click="doLogout">🚪 Sign Out</button>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">{{ pageTitle }}</div>
+          <div class="topbar-breadcrumb">{{ pageBreadcrumb }}</div>
+        </div>
+        <span style="font-size:12px;color:var(--text-muted)">{{ nowStr }}</span>
+      </div>
+
+      <div class="page-body">
+
+        <!-- ══════ DASHBOARD ══════ -->
+        <div v-if="page==='dashboard'">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#dbeafe">📊</div>
+              <div>
+                <div class="stat-value">{{ dashStats.total_predictions || 0 }}</div>
+                <div class="stat-label">Total Predictions</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#d1fae5">✅</div>
+              <div>
+                <div class="stat-value" style="color:var(--success)">{{ dashStats.predictions_by_risk?.['Low Risk'] || 0 }}</div>
+                <div class="stat-label">Low Risk Students</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#fef3c7">⚠️</div>
+              <div>
+                <div class="stat-value" style="color:var(--warning)">{{ dashStats.predictions_by_risk?.['Medium Risk'] || 0 }}</div>
+                <div class="stat-label">Medium Risk Students</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:#fee2e2">🚨</div>
+              <div>
+                <div class="stat-value" style="color:var(--danger)">{{ dashStats.predictions_by_risk?.['High Risk'] || 0 }}</div>
+                <div class="stat-label">High Risk Students</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-header"><div class="card-title">📈 Risk Distribution</div></div>
+              <div class="card-body" style="height:260px;display:flex;align-items:center;justify-content:center">
+                <canvas id="dashChart" style="max-height:240px"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">🤖 Model Information</div></div>
+              <div class="card-body">
+                <table style="width:100%">
+                  <tr>
+                    <td style="padding:8px 0;color:var(--text-muted);font-size:13px">Algorithm</td>
+                    <td style="font-weight:600;font-size:13px">{{ dashStats.model_name || '—' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:var(--text-muted);font-size:13px">Accuracy</td>
+                    <td style="font-weight:700;color:var(--success);font-size:13px">
+                      {{ dashStats.model_accuracy ? (dashStats.model_accuracy*100).toFixed(2)+'%' : '—' }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:var(--text-muted);font-size:13px">F1-Score (Macro)</td>
+                    <td style="font-weight:700;color:var(--primary);font-size:13px">
+                      {{ dashStats.model_f1 ? (dashStats.model_f1*100).toFixed(2)+'%' : '—' }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:var(--text-muted);font-size:13px">Classes</td>
+                    <td style="font-size:13px">
+                      <span class="badge badge-green">Low</span>
+                      <span class="badge badge-orange">Medium</span>
+                      <span class="badge badge-red">High</span>
+                    </td>
+                  </tr>
+                </table>
+                <button class="btn btn-primary" style="margin-top:16px;width:100%" @click="navigate('predict')">
+                  🔮 Make a Prediction
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:20px">
+            <div class="card-header"><div class="card-title">🕐 Recent Predictions</div></div>
+            <div class="card-body">
+              <div v-if="recentPredictions.length === 0" class="empty-state">
+                <div class="big-icon">📭</div>
+                <div>No predictions yet.
+                  <span style="color:var(--primary);cursor:pointer" @click="navigate('predict')">Make one now!</span>
+                </div>
+              </div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Student</th><th>Attendance%</th><th>Midterm</th>
+                      <th>Assign Avg</th><th>Late Sub</th><th>Prev CGPA</th>
+                      <th>Risk Level</th><th>Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in recentPredictions.slice(0,5)" :key="p.id">
+                      <td>
+                        <strong>{{ p.student_name }}</strong><br/>
+                        <span style="font-size:11px;color:var(--text-muted)">{{ p.student_id }}</span>
+                      </td>
+                      <td>{{ p.inputs.attendance_rate }}%</td>
+                      <td>{{ p.inputs.midterm_score }}</td>
+                      <td>{{ p.inputs.assignment_avg }}</td>
+                      <td>{{ p.inputs.late_submissions }}</td>
+                      <td>{{ p.inputs.previous_cgpa }}</td>
+                      <td><span :class="riskBadge(p.prediction)" class="badge">{{ p.prediction_label }}</span></td>
+                      <td>{{ p.confidence }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ PREDICT ══════ -->
+        <div v-if="page==='predict'">
+          <div v-if="predAlert" :class="['alert', predAlert.type==='success' ? 'alert-success' : 'alert-error']">
+            {{ predAlert.msg }}
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎓 Student Information</div></div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Student Name</label>
+                  <input v-model="predForm.student_name" type="text" placeholder="e.g. Ahmad bin Ali" />
+                </div>
+                <div class="form-group">
+                  <label>Student ID</label>
+                  <input v-model="predForm.student_id" type="text" placeholder="e.g. B25030045" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><div class="card-title">📊 Academic Attributes</div></div>
+            <div class="card-body">
+              <div class="form-grid">
+
+                <div class="form-group">
+                  <label>Attendance Rate % (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.attendance_rate" type="number" min="0" max="100" step="0.1"
+                    :class="{invalid: predErrors.attendance_rate}" placeholder="e.g. 85.0" />
+                  <div class="range-hint">📌 Source: University attendance system</div>
+                  <div v-if="predErrors.attendance_rate" class="field-error">{{ predErrors.attendance_rate }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Midterm Score (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.midterm_score" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.midterm_score}" placeholder="e.g. 62.5" />
+                  <div class="range-hint">📌 Source: Examination records</div>
+                  <div v-if="predErrors.midterm_score" class="field-error">{{ predErrors.midterm_score }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Assignment Average (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.assignment_avg" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.assignment_avg}" placeholder="e.g. 70.0" />
+                  <div class="range-hint">📌 Source: LMS / Gradebook</div>
+                  <div v-if="predErrors.assignment_avg" class="field-error">{{ predErrors.assignment_avg }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Quiz Average (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.quiz_avg" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.quiz_avg}" placeholder="e.g. 68.0" />
+                  <div class="range-hint">📌 Source: LMS quiz records</div>
+                  <div v-if="predErrors.quiz_avg" class="field-error">{{ predErrors.quiz_avg }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Lab / Practical Score (0–100) <span style="color:red">*</span></label>
+                  <input v-model="predForm.lab_score" type="number" min="0" max="100" step="0.01"
+                    :class="{invalid: predErrors.lab_score}" placeholder="e.g. 75.0" />
+                  <div class="range-hint">📌 Source: Lab/practical records</div>
+                  <div v-if="predErrors.lab_score" class="field-error">{{ predErrors.lab_score }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Participation Score (0–10) <span style="color:red">*</span></label>
+                  <input v-model="predForm.participation_score" type="number" min="0" max="10" step="0.5"
+                    :class="{invalid: predErrors.participation_score}" placeholder="e.g. 7.5" />
+                  <div class="range-hint">📌 Source: Lecturer-given class participation marks</div>
+                  <div v-if="predErrors.participation_score" class="field-error">{{ predErrors.participation_score }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Late Submissions (0–10) <span style="color:red">*</span></label>
+                  <input v-model="predForm.late_submissions" type="number" min="0" max="10"
+                    :class="{invalid: predErrors.late_submissions}" placeholder="e.g. 2" />
+                  <div class="range-hint">📌 Source: LMS submission log</div>
+                  <div v-if="predErrors.late_submissions" class="field-error">{{ predErrors.late_submissions }}</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Previous CGPA (0.00–4.00) <span style="color:red">*</span></label>
+                  <input v-model="predForm.previous_cgpa" type="number" min="0" max="4" step="0.01"
+                    :class="{invalid: predErrors.previous_cgpa}" placeholder="e.g. 3.20" />
+                  <div class="range-hint">📌 Source: Student academic records (last semester)</div>
+                  <div v-if="predErrors.previous_cgpa" class="field-error">{{ predErrors.previous_cgpa }}</div>
+                </div>
+
+              </div>
+              <div style="display:flex;gap:12px;margin-top:20px">
+                <button class="btn btn-primary" @click="submitPrediction" :disabled="predLoading" style="min-width:160px">
+                  <span v-if="predLoading" class="spinner" style="width:16px;height:16px;border-width:2px"></span>
+                  {{ predLoading ? 'Predicting...' : '🔮 Predict Risk Level' }}
+                </button>
+                <button class="btn btn-secondary" @click="clearPredForm">🔄 Clear Form</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PREDICTION RESULT -->
+          <div v-if="predResult" style="margin-top:16px">
+            <div :class="['result-banner', predResult.color]">
+              <div class="result-icon">{{ resultIcon(predResult.color) }}</div>
+              <div>
+                <div class="result-label">{{ predResult.prediction_label }}</div>
+                <div class="result-confidence">Confidence: <strong>{{ predResult.confidence }}%</strong></div>
+                <div style="font-size:13px;margin-top:4px;opacity:.8">
+                  Student: {{ predResult.student_name }} ({{ predResult.student_id }})
+                </div>
+              </div>
+            </div>
+            <div class="card" style="margin-top:14px">
+              <div class="card-header"><div class="card-title">📊 Class Probability Breakdown</div></div>
+              <div class="card-body">
+                <div class="prob-bars">
+                  <div v-for="(val, label) in predResult.probabilities" :key="label" class="prob-row">
+                    <div class="prob-name">{{ label }}</div>
+                    <div class="prob-bar-bg">
+                      <div class="prob-bar-fill"
+                        :style="{width: val+'%', background: probColor(label)}"></div>
+                    </div>
+                    <div class="prob-val">{{ val }}%</div>
+                  </div>
+                </div>
+                <div class="advice-box">
+                  💡 <strong>Recommendation:</strong> {{ predResult.advice }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ HISTORY ══════ -->
+        <div v-if="page==='history'">
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="card-title">📋 Prediction History</div>
+              <button class="btn btn-secondary" @click="loadHistory">🔄 Refresh</button>
+            </div>
+            <div class="card-body">
+              <div v-if="historyLoading" class="loading"><div class="spinner"></div> Loading...</div>
+              <div v-else-if="historyList.length === 0" class="empty-state">
+                <div class="big-icon">📭</div>
+                <div>No prediction history found.</div>
+              </div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Date/Time</th><th>Student</th>
+                      <th>Attend%</th><th>Midterm</th><th>Assign Avg</th>
+                      <th>Quiz</th><th>Lab</th><th>Particip.</th>
+                      <th>Late Sub</th><th>Prev CGPA</th>
+                      <th>Risk Level</th><th>Confidence</th>
+                      <th v-if="currentUser.role==='admin'">Submitted By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(p, i) in historyList" :key="p.id">
+                      <td style="color:var(--text-muted)">{{ i+1 }}</td>
+                      <td style="font-size:12px">{{ fmtDate(p.timestamp) }}</td>
+                      <td>
+                        <strong>{{ p.student_name }}</strong><br/>
+                        <span style="font-size:11px;color:var(--text-muted)">{{ p.student_id }}</span>
+                      </td>
+                      <td>{{ p.inputs.attendance_rate }}%</td>
+                      <td>{{ p.inputs.midterm_score }}</td>
+                      <td>{{ p.inputs.assignment_avg }}</td>
+                      <td>{{ p.inputs.quiz_avg }}</td>
+                      <td>{{ p.inputs.lab_score }}</td>
+                      <td>{{ p.inputs.participation_score }}</td>
+                      <td>{{ p.inputs.late_submissions }}</td>
+                      <td>{{ p.inputs.previous_cgpa }}</td>
+                      <td><span :class="riskBadge(p.prediction)" class="badge">{{ p.prediction_label }}</span></td>
+                      <td>{{ p.confidence }}%</td>
+                      <td v-if="currentUser.role==='admin'" style="font-size:12px">{{ p.submitted_by }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ ADMIN: USER MANAGEMENT ══════ -->
+        <div v-if="page==='admin-users'">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+            <button class="btn btn-primary" @click="openCreateUser">➕ Add New User</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">👥 System Users</div></div>
+            <div class="card-body">
+              <div v-if="usersLoading" class="loading"><div class="spinner"></div> Loading...</div>
+              <div v-else class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Full Name</th><th>Username</th><th>Email</th>
+                      <th>Role</th><th>Status</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="u in userList" :key="u.id">
+                      <td><strong>{{ u.full_name }}</strong></td>
+                      <td><code>{{ u.username }}</code></td>
+                      <td>{{ u.email }}</td>
+                      <td>
+                        <span :class="u.role==='admin' ? 'badge badge-purple' : 'badge badge-blue'">
+                          {{ u.role }}
+                        </span>
+                      </td>
+                      <td>
+                        <span :class="u.active ? 'badge badge-green' : 'badge badge-gray'">
+                          {{ u.active ? 'Active' : 'Inactive' }}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-secondary"
+                          style="padding:5px 10px;font-size:12px;margin-right:6px"
+                          @click="openEditUser(u)">✏️ Edit</button>
+                        <button v-if="u.active && u.username !== 'admin'"
+                          class="btn btn-danger"
+                          style="padding:5px 10px;font-size:12px"
+                          @click="deactivateUser(u)">🚫 Deactivate</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ ADMIN: DATASET ══════ -->
+        <div v-if="page==='admin-dataset'">
+          <div v-if="datasetInfo">
+            <div class="stat-grid" style="margin-bottom:20px">
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#dbeafe">📁</div>
+                <div>
+                  <div class="stat-value">{{ datasetInfo.total_records }}</div>
+                  <div class="stat-label">Total Records</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#d1fae5">✅</div>
+                <div>
+                  <div class="stat-value">{{ datasetInfo.class_distribution?.[0] || 0 }}</div>
+                  <div class="stat-label">Low Risk (Class 0)</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#fef3c7">⚠️</div>
+                <div>
+                  <div class="stat-value">{{ datasetInfo.class_distribution?.[1] || 0 }}</div>
+                  <div class="stat-label">Medium Risk (Class 1)</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:#fee2e2">🚨</div>
+                <div>
+                  <div class="stat-value">{{ datasetInfo.class_distribution?.[2] || 0 }}</div>
+                  <div class="stat-label">High Risk (Class 2)</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">🔍 Sample Dataset Records (First 20)</div></div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Attend%</th><th>Midterm</th><th>Assign Avg</th>
+                        <th>Quiz Avg</th><th>Lab Score</th><th>Particip.</th>
+                        <th>Late Sub</th><th>Prev CGPA</th><th>Risk Level</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(r, i) in (datasetInfo.sample_records || [])" :key="i">
+                        <td>{{ r.attendance_rate }}</td>
+                        <td>{{ r.midterm_score }}</td>
+                        <td>{{ r.assignment_avg }}</td>
+                        <td>{{ r.quiz_avg }}</td>
+                        <td>{{ r.lab_score }}</td>
+                        <td>{{ r.participation_score }}</td>
+                        <td>{{ r.late_submissions }}</td>
+                        <td>{{ r.previous_cgpa }}</td>
+                        <td>
+                          <span :class="riskBadge(r.risk_level)" class="badge">
+                            {{ ['Low Risk','Medium Risk','High Risk'][r.risk_level] }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="loading"><div class="spinner"></div> Loading dataset...</div>
+        </div>
+
+        <!-- ══════ ADMIN: MODEL EVALUATION ══════ -->
+        <div v-if="page==='admin-model'">
+          <div v-if="evalData">
+            <div class="tabs">
+              <div class="tab" :class="{active: evalTab==='summary'}"   @click="evalTab='summary'">📈 Summary</div>
+              <div class="tab" :class="{active: evalTab==='confusion'}" @click="evalTab='confusion'">🔲 Confusion Matrix</div>
+              <div class="tab" :class="{active: evalTab==='cv'}"        @click="evalTab='cv'">🔄 Cross-Validation</div>
+              <div class="tab" :class="{active: evalTab==='all'}"       @click="switchToAllTab()">📊 All Models</div>
+            </div>
+
+            <!-- SUMMARY -->
+            <div v-if="evalTab==='summary'">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">🏆 Best Model: {{ modelMeta?.best_model_name }}</div>
+                </div>
+                <div class="card-body">
+                  <div class="metric-grid">
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.accuracy) }}</div><div class="metric-lbl">Accuracy</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.f1_macro) }}</div><div class="metric-lbl">F1 (Macro)</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.f1_micro) }}</div><div class="metric-lbl">F1 (Micro)</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.precision_macro) }}</div><div class="metric-lbl">Precision</div></div>
+                    <div class="metric-card"><div class="metric-val">{{ pct(bestEval?.recall_macro) }}</div><div class="metric-lbl">Recall</div></div>
+                  </div>
+                  <div style="margin-top:24px">
+                    <div class="card-title" style="margin-bottom:14px;font-size:15px">Per-Class Metrics</div>
+                    <div class="table-wrap">
+                      <table>
+                        <thead>
+                          <tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(cls, name) in perClassMetrics" :key="name">
+                            <td><span :class="riskBadgeStr(name)" class="badge">{{ name }}</span></td>
+                            <td>{{ pct(cls.precision) }}</td>
+                            <td>{{ pct(cls.recall) }}</td>
+                            <td><strong>{{ pct(cls['f1-score']) }}</strong></td>
+                            <td>{{ cls.support }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONFUSION MATRIX -->
+            <div v-if="evalTab==='confusion'">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">🔲 Confusion Matrix — {{ modelMeta?.best_model_name }}</div>
+                </div>
+                <div class="card-body">
+                  <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+                    Rows = Actual Labels · Columns = Predicted Labels · Diagonal = Correct Predictions
+                  </p>
+                  <table style="border-collapse:collapse;text-align:center">
+                    <thead>
+                      <tr>
+                        <th style="background:#f9fafb;padding:12px">Actual \ Predicted</th>
+                        <th style="padding:12px;background:#d1fae5">Low Risk</th>
+                        <th style="padding:12px;background:#fef3c7">Med Risk</th>
+                        <th style="padding:12px;background:#fee2e2">High Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, ri) in (bestEval?.confusion_matrix || [])" :key="ri">
+                        <td style="font-weight:700;background:#f9fafb;padding:12px">
+                          {{ ['Low Risk','Medium Risk','High Risk'][ri] }}
+                        </td>
+                        <td v-for="(val, ci) in row" :key="ci"
+                          :style="{
+                            background: ri===ci ? '#d1fae5' : '#fee2e2',
+                            fontWeight: ri===ci ? '800' : '400',
+                            padding: '14px', fontSize: '18px'
+                          }">{{ val }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="advice-box" style="margin-top:16px">
+                    💡 <strong>Interpretation:</strong> Diagonal values = correctly classified students.
+                    Off-diagonal = misclassified. A student predicted Low Risk but actually High Risk is the most critical error.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CROSS VALIDATION -->
+            <div v-if="evalTab==='cv'">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">🔄 5-Fold Cross-Validation Results</div>
+                </div>
+                <div class="card-body">
+                  <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+                    Cross-validation confirms model stability. Higher mean + lower std = more reliable model.
+                  </p>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Model</th><th>CV Mean F1</th><th>CV Std Dev</th>
+                          <th>Fold 1</th><th>Fold 2</th><th>Fold 3</th><th>Fold 4</th><th>Fold 5</th>
+                          <th>Winner?</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(data, name) in evalData" :key="name">
+                          <td><strong>{{ name }}</strong></td>
+                          <td><strong style="color:var(--primary)">{{ pct(data.cv_mean) }}</strong></td>
+                          <td>{{ data.cv_std ? '±'+(data.cv_std*100).toFixed(2)+'%' : '—' }}</td>
+                          <td v-for="(s, i) in (data.cv_scores || [])" :key="i">{{ pct(s) }}</td>
+                          <td>{{ name === modelMeta?.best_model_name ? '🏆 Best' : '' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ALL MODELS -->
+            <div v-if="evalTab==='all'">
+              <div class="card">
+                <div class="card-header"><div class="card-title">📊 Model Comparison</div></div>
+                <div class="card-body">
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Model</th><th>Accuracy</th><th>F1 Macro</th>
+                          <th>F1 Micro</th><th>Precision</th><th>Recall</th><th>Winner?</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(data, name) in evalData" :key="name"
+                          :style="name===modelMeta?.best_model_name ? 'background:#eff6ff;font-weight:600' : ''">
+                          <td><strong>{{ name }}</strong></td>
+                          <td>{{ pct(data.accuracy) }}</td>
+                          <td>{{ pct(data.f1_macro) }}</td>
+                          <td>{{ pct(data.f1_micro) }}</td>
+                          <td>{{ pct(data.precision_macro) }}</td>
+                          <td>{{ pct(data.recall_macro) }}</td>
+                          <td>{{ name === modelMeta?.best_model_name ? '🏆 Best' : '' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style="margin-top:24px;height:300px">
+                    <canvas id="modelCompChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div v-else class="loading"><div class="spinner"></div> Loading evaluation data...</div>
+        </div>
+
+      </div><!-- end page-body -->
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       USER MODAL
+  ══════════════════════════════════════════ -->
+  <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal=false">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">{{ editingUser ? '✏️ Edit User' : '➕ Create New User' }}</div>
+        <button class="close-btn" @click="showUserModal=false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="userModalAlert"
+          :class="['alert', userModalAlert.type==='success' ? 'alert-success' : 'alert-error']">
+          {{ userModalAlert.msg }}
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input v-model="userForm.full_name" type="text" placeholder="Dr. Ahmad bin Ali" />
+        </div>
+        <div v-if="!editingUser" class="form-group">
+          <label>Username</label>
+          <input v-model="userForm.username" type="text" placeholder="lecturer2" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input v-model="userForm.email" type="email" placeholder="user@edu.my" />
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select v-model="userForm.role">
+            <option value="user">User (Lecturer / Advisor)</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Password {{ editingUser ? '(leave blank to keep current)' : '' }}</label>
+          <input v-model="userForm.password" type="password" placeholder="••••••••" />
+        </div>
+        <div v-if="editingUser" class="form-group" style="display:flex;align-items:center;gap:12px">
+          <label style="margin:0">Active</label>
+          <label class="toggle">
+            <input type="checkbox" v-model="userForm.active" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:13px;color:var(--text-muted)">{{ userForm.active ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="showUserModal=false">Cancel</button>
+        <button class="btn btn-primary" @click="saveUser" :disabled="userSaving">
+          {{ userSaving ? 'Saving...' : (editingUser ? '💾 Save Changes' : '➕ Create User') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end #app -->
+
+<!-- ════════════════════════════════════════════
+     SCRIPTS — loaded in dependency order
+════════════════════════════════════════════ -->
+<script src="js/utils.js"></script>
+<script src="js/ApiService.js"></script>
+<script src="js/ChartService.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
