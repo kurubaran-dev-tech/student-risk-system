@@ -1,21 +1,15 @@
 """
 Student Performance Risk Classification - Flask Backend
-Provides REST API with Role-Based Access Control (RBAC).
+REST API with Role-Based Access Control (RBAC).
 Roles: Admin, User (Lecturer/Advisor)
 """
 
 from flask import Flask, request, jsonify
-import joblib
-import json
-import os
-import hashlib
-import datetime
-import uuid
+import joblib, json, os, hashlib, datetime, uuid
 import pandas as pd
 
 app = Flask(__name__)
 
-# ─── LOAD MODEL ───────────────────────────────────────────────────────────────
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
 model = joblib.load(os.path.join(MODEL_DIR, 'best_model.pkl'))
 scaler = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
@@ -25,7 +19,20 @@ with open(os.path.join(MODEL_DIR, 'model_meta.json')) as f:
 FEATURES = model_meta['features']
 SCALED = model_meta['scaled']
 
-# ─── IN-MEMORY DATA STORES ────────────────────────────────────────────────────
+LOG_FILE = os.path.join(os.path.dirname(__file__), 'prediction_log.json')
+
+def load_log():
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE) as f:
+            return json.load(f)
+    return []
+
+def save_log(log):
+    with open(LOG_FILE, 'w') as f:
+        json.dump(log, f, indent=2)
+
+PREDICTION_LOG = load_log()
+
 def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 USERS = {
@@ -37,12 +44,10 @@ USERS = {
                  'role': 'user', 'full_name': 'Mr. Ravi Kumar', 'email': 'ravi@edu.my', 'active': True},
 }
 
-SESSIONS = {}  # token -> {username, role, expires}
-PREDICTION_LOG = []  # list of prediction records
+SESSIONS = {}
 DATASET_STATS = {}
 
 def init_dataset_stats():
-    """Load dataset stats once at startup."""
     csv_path = os.path.join(os.path.dirname(__file__), '../dataset/student_performance.csv')
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
@@ -53,12 +58,10 @@ def init_dataset_stats():
 
 init_dataset_stats()
 
-# ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
 def create_token(username, role):
     token = str(uuid.uuid4())
     SESSIONS[token] = {
-        'username': username,
-        'role': role,
+        'username': username, 'role': role,
         'expires': (datetime.datetime.now() + datetime.timedelta(hours=8)).isoformat()
     }
     return token
@@ -111,7 +114,7 @@ def after_request(response):
 def options(path):
     return jsonify({}), 200
 
-# ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
+# ─── AUTH ────────────────────────────────────────────────────────────────────
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -123,12 +126,8 @@ def login():
     if not user['active']:
         return jsonify({'error': 'Account is deactivated.'}), 403
     token = create_token(username, user['role'])
-    return jsonify({
-        'token': token,
-        'role': user['role'],
-        'full_name': user['full_name'],
-        'username': username
-    })
+    return jsonify({'token': token, 'role': user['role'],
+                    'full_name': user['full_name'], 'username': username})
 
 @app.route('/api/logout', methods=['POST'])
 @require_auth
@@ -143,14 +142,13 @@ def me():
     u = USERS[request.session['username']]
     return jsonify({k: v for k, v in u.items() if k != 'password'})
 
-# ─── PREDICTION ROUTES ────────────────────────────────────────────────────────
+# ─── PREDICTION ──────────────────────────────────────────────────────────────
 @app.route('/api/predict', methods=['POST'])
 @require_auth
 def predict():
     data = request.get_json()
     errors = {}
 
-    # Validation
     carry_marks = data.get('carry_marks')
     assignment_score = data.get('assignment_score')
     absences = data.get('absences')
@@ -218,6 +216,7 @@ def predict():
         'color': color_map[prediction]
     }
     PREDICTION_LOG.append(record)
+    save_log(PREDICTION_LOG)
 
     return jsonify(record)
 
@@ -254,7 +253,8 @@ def create_user():
         'email': data.get('email', f'{username}@edu.my'),
         'active': True
     }
-    return jsonify({'message': f'User {username} created.', 'user': {k: v for k, v in USERS[username].items() if k != 'password'}})
+    return jsonify({'message': f'User {username} created.',
+                    'user': {k: v for k, v in USERS[username].items() if k != 'password'}})
 
 @app.route('/api/admin/users/<uid>', methods=['PUT'])
 @require_admin
@@ -279,7 +279,7 @@ def deactivate_user(uid):
     user['active'] = False
     return jsonify({'message': f"User {user['username']} deactivated."})
 
-# ─── ADMIN: DATASET & MODEL INFO ─────────────────────────────────────────────
+# ─── ADMIN: DATASET & MODEL ──────────────────────────────────────────────────
 @app.route('/api/admin/dataset', methods=['GET'])
 @require_admin
 def dataset_info():
