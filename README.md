@@ -35,7 +35,6 @@ python3 train_model.py
 ```bash
 cd backend
 python3 app.py
-# Runs on http://localhost:5000
 ```
 
 ### Step 3 – Open the Frontend
