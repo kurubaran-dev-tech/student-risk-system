@@ -40,7 +40,7 @@ python3 app.py
 ### Step 3 – Open the Frontend
 Open `frontend/index.html` directly in any browser.
 
-> ⚠️ The frontend connects to `http://localhost:5000/api`  
+> ⚠️ The frontend connects to `https://kurubaran-dev-tech.github.io/student-risk-system/`  
 > Make sure the backend is running before opening the frontend.
 
 ---
